@@ -158,5 +158,5 @@ class AccessLog {
 
 
 public class AccessLogComparator: Comparator<AccessLog> {
-	override public fun compare(log1: AccessLog, log2: AccessLog): Int = log1.getSize() - log2.getSize();
+	override public fun compare(log1: AccessLog, log2: AccessLog): Int = log2.getSize() - log1.getSize();
 }
