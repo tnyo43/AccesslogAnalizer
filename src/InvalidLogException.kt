@@ -1,0 +1,2 @@
+class InvalidLogException(): Exception() {
+}
