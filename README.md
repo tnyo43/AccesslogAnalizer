@@ -1,5 +1,10 @@
 # AccesslogAnalizer
 
+## prepare
+
+ログファイルを`logs`ディレクトリに入れる。
+ファイルは複数でも構わない。
+
 ## compile
 
 kotlinc src/*.kt

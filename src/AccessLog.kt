@@ -114,10 +114,17 @@ class AccessLog {
         this.accesses = accesses;
     }
 
-    public fun readLogFile(filename: String) {
+    private fun readLogFile(filename: String) {
         val lines = File(filename).bufferedReader().readLines();
         for (line in lines) {
             this.accesses.add(Access.ofAccessLogLine(line));
+        }
+    }
+
+    public fun readLogsDir(dirname: String) {
+        val files = File(dirname).list();
+        for (filename in files) {
+            readLogFile(String.format("%s/%s", dirname, filename));
         }
     }
 

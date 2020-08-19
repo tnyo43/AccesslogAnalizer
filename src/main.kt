@@ -16,7 +16,7 @@ fun main(args: Array<String>) {
     }
 
     val log = AccessLog();
-    log.readLogFile("log_sample.txt");
+    log.readLogsDir("logs");
 
     val display: Display = getDisplayClass(args[0], log)
     display.display();
