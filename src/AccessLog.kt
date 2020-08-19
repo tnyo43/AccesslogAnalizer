@@ -105,19 +105,38 @@ class Access {
 
 class AccessLog {
     private val accesses: ArrayList<Access>;
+    private val start: Date?;
+    private val end: Date?;
 
-    constructor() {
+
+    constructor(start: String?, end: String?) {
         this.accesses = ArrayList<Access>();
+
+        this.start = start?.toDate("yyyy/MM/dd");
+        this.end = if (end == null) null else (end + " 23:59:59").toDate();
     }
 
-    private constructor(accesses: ArrayList<Access>) {
+    private constructor(accesses: ArrayList<Access>, start: Date?, end: Date?) {
         this.accesses = accesses;
+        this.start = start;
+        this.end = end;
     }
 
     private fun readLogFile(filename: String) {
         val lines = File(filename).bufferedReader().readLines();
-        for (line in lines) {
-            this.accesses.add(Access.ofAccessLogLine(line));
+        val newAccesses =
+            lines
+                .map { map_it ->
+                    Access.ofAccessLogLine(map_it)
+                }
+                .filter { access ->
+                    if (this.start == null) true else this.start <= access.getDate()
+                }
+                .filter { access ->
+                    if (this.end == null) true else access.getDate() <= this.end
+                };
+        for (na in newAccesses) {
+            this.accesses.add(na);
         }
     }
 
@@ -139,7 +158,7 @@ class AccessLog {
             groups[hour].add(access);
         }
 
-        return groups.map { AccessLog(it) };
+        return groups.map { AccessLog(it, this.start, this.end) };
     }
 
     public fun groupByHostOrderbyCount(): List<Pair<String, AccessLog>> {
@@ -154,7 +173,7 @@ class AccessLog {
         }
 
         val result = ArrayList<AccessLog>();
-        groupsMap.forEach { _, v -> result.add(AccessLog(v)) }
+        groupsMap.forEach { _, v -> result.add(AccessLog(v, this.start, this.end)) }
         Collections.sort(result, AccessLogComparator());
 
         return result.map { Pair(it.accesses.get(0).getHost(), it) };
