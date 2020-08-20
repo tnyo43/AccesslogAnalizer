@@ -13,7 +13,7 @@ kotlinc src/*.kt
 
 kotlin MainKt [style-option] [options]
 
-### style-option(recessary)
+### style-option(required)
 
 - host : アクセスの多いリモートホストの順にアクセス件数の一覧を表示する
 - timezone : 各時間帯毎のアクセス件数を表示する
