@@ -2,6 +2,8 @@ import java.util.Collections;
 import java.util.regex.Pattern;
 import java.util.Date;
 import java.util.Calendar;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 import java.lang.IllegalArgumentException;
@@ -16,36 +18,13 @@ fun String.toDate(pattern: String = "yyyy/MM/dd HH:mm:ss"): Date {
 }
 
 class Access {
+    // 軽量にするために、保持するデータは解析で用いるhostとdateだけ
     private val host: String;
-    private val identifier: String;
-    private val user: String;
     private val date: Date;
-    private val firstLine: String;
-    private val state: Int;
-    private val responseSize: Int;
-    private val referer: String;
-    private val userAgent: String;
 
-    private constructor (
-        host: String,
-        identifier: String,
-        user: String,
-        date: Date,
-        firstLine: String,
-        state: Int,
-        responseSize: Int,
-        referer: String,
-        userAgent: String
-    ) {
+    private constructor (host: String, date: Date) {
         this.host = host;
-        this.identifier = identifier;
-        this.user = user;
         this.date = date;
-        this.firstLine = firstLine;
-        this.state = state;
-        this.responseSize = responseSize;
-        this.referer = referer;
-        this.userAgent = userAgent;
     }
 
     companion object {
@@ -73,25 +52,8 @@ class Access {
 
             if (matcher.matches()) {
                 val host = matcher.group(1);
-                val identifier = matcher.group(2);
-                val user = matcher.group(3);
                 val date = String.format("%s/%s/%s %s:%s:%s", matcher.group(6), matcher.group(5).toMonth(), matcher.group(4), matcher.group(7), matcher.group(8), matcher.group(9)).toDate()
-                val firstLine = matcher.group(10);
-                val state = matcher.group(11).toInt();
-                val responseSize = if (matcher.group(12) == "-") 0 else matcher.group(12).toInt();
-                val referer = matcher.group(13);
-                val userAgent = matcher.group(14);
-                return Access(
-                    host,
-                    identifier,
-                    user,
-                    date,
-                    firstLine,
-                    state,
-                    responseSize,
-                    referer,
-                    userAgent
-                )
+                return Access(host, date)
             } else {
                 throw InvalidLogException();
             }
@@ -122,8 +84,8 @@ class AccessLog {
         this.end = end;
     }
 
-    private fun readLogFile(filename: String) {
-        val lines = File(filename).bufferedReader().readLines();
+    private fun readLogFile(file: File) {
+        val lines = file.bufferedReader().readLines();
         val newAccesses =
             lines
                 .map { map_it ->
@@ -141,9 +103,32 @@ class AccessLog {
     }
 
     public fun readLogsDir(dirname: String) {
-        val files = File(dirname).list();
-        for (filename in files) {
-            readLogFile(String.format("%s/%s", dirname, filename));
+        // 大きい方から順に見るほうが後半でも読める可能性が高い（貪欲な方法）
+        val files = File(dirname)
+                        .list()
+                        .toList()
+                        .map { filename -> File(String.format("%s/%s", dirname, filename))};
+        Collections.sort(files, FileComparator());
+
+        var openFileCount = 0;
+        for (file in files) {
+            val usingMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+            val maxMemory = Runtime.getRuntime().maxMemory();
+            val fileMemory = file.length();
+
+            // "ファイルの展開" + "オブジェクトの生成" で "ファイルの容量" の2倍のメモリが確保できるか確認
+            if (maxMemory - usingMemory > 2 * fileMemory) {
+                readLogFile(file);
+                openFileCount++;
+            } else {
+                val logger = Logger.getLogger("AccessLog");
+                logger.setLevel(Level.WARNING); 
+                logger.warning(String.format("ファイル \"%s\" が大きすぎて展開できません。ファイルを分割してください。", file.name));
+            }
+        }
+
+        if (openFileCount == 0) {
+            throw Exception("Not Enough Memory, No File opened");
         }
     }
 
@@ -185,4 +170,8 @@ class AccessLog {
 
 public class AccessLogComparator: Comparator<AccessLog> {
 	override public fun compare(log1: AccessLog, log2: AccessLog): Int = log2.getSize() - log1.getSize();
+}
+
+public class FileComparator: Comparator<File> {
+	override public fun compare(file1: File, file2: File): Int = (file2.length() - file1.length()).toInt();
 }
